@@ -1,32 +1,24 @@
-# Blackboard Scraper
-Script for locally downloading all files from your personal Blackboard page
+# Blackboard Scraper for Imperial
 
-## Requirements
-- Python 3.9 or up
-- Beautiful Soup 4
-```
-pip install beautifulsoup4
-```
-- Requests
-```
-pip install requests
-```
+Downloads files from your Blackboard Original courses into `downloads/<course name>/`,
+keeping the course's content folders. Existing filenames are skipped.
 
-## Steps
-1. Login to Blackboard
-2. On the home page (where the course list is) right click anywhere on the screen and click "inspect" to open the developer tools
-3. Look for the "Network" tab and open it
-4. Refresh the page
-5. You'll see a lot of requests appear. Find the first one and right click on it. 
-6. Click copy then copy as cURL
+Requires Python 3.9+, `requests`, and `beautifulsoup4`.
 
-<img width="524" alt="Screenshot 2022-07-26 at 20 33 22" src="https://user-images.githubusercontent.com/38282695/181096404-7a750c25-b67b-421a-a873-2ee65b77d2c9.png">
+1. Sign in at https://bb.imperial.ac.uk in your browser.
+2. Keep your current Blackboard cookies in the local `cookies` dictionary in
+   `headers.py`. An optional `headers` dictionary is also supported.
+3. On the Courses page, scroll until the courses you want are loaded. Run
+   `getCourseLinks.js` in the browser console and paste its printed
+   `course_links = {...}` assignment into `course_links.py`. Remove entries
+   you do not want to download.
+4. Run `python scrape.py`.
 
-7. Go to https://curlconverter.com/ and paste the cURL request into it to get the request headers and cookies in Python
-8. Copy the `headers` and `cookies` variables and paste them into `headers.py`
-9. Go back to the Blackboard homepage and open the Console tab in the developer tools
-10. Copy the contents of `getCourseLinks.js` and paste it into the console and press Enter.
-11. Right click on the output and click "Copy Object"
-12. Paste the object in place of `#PASTE HERE` in `course_links.py`
-13. Save changes 
-14. Run `python3 scrape.py` to start downloading
+To choose another download folder, run `python scrape.py "C:\path\to\downloads"`.
+
+The scraper follows Blackboard content folders and file links. Lecture recordings
+and external services such as Panopto need their own download methods. Refresh
+your cookies if Blackboard asks you to sign in again.
+
+Cookies grant access to your signed-in account. Keep them on your computer and
+out of commits.
