@@ -6,6 +6,8 @@ from bs4 import BeautifulSoup
 from course_links import course_links
 from common_mime import common_mime
 from headers import headers, cookies
+from urllib.parse import urlsplit
+from blackboard_urls import resolve_blackboard_url
 
 visited_urls = set()
 
@@ -45,17 +47,17 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True):
 		name = " ".join(link.get_text().split())
 		name = re.sub(r"[/\\:*?\”\"<>|]", '', name)
 		
-		if href.startswith('/webapps/blackboard/content/listContent'):
-			if href.endswith('logout'):
+		url = resolve_blackboard_url(href)
+		if url is None:
+			continue
+
+		path = urlsplit(url).path
+		if path.startswith('/webapps/blackboard/content/listContent'):
+			if url.endswith('logout'):
 				continue
-			download_content(
-				f"https://online.manchester.ac.uk{href}", os.path.join(cur_path, name))
-
-		if href.startswith('/bbcswebdav'):
-			download_file(f"https://online.manchester.ac.uk{href}", cur_path, name)
-
-		if href.startswith('https://online.manchester.ac.uk/bbcswebdav'):
-			download_file(href, cur_path, name)
+			download_content(url, os.path.join(cur_path, name))
+		elif path.startswith('/bbcswebdav'):
+			download_file(url, cur_path, name)
 
 
 def download_file(url, path, name):
