@@ -50,3 +50,8 @@ course_links = {
     "Plagiarism Awareness for Mathematics Undergraduates - 22/23": "https://bb.imperial.ac.uk/webapps/blackboard/execute/courseMain?course_id=_35260_1",
     "Tutor and GTA material": "https://bb.imperial.ac.uk/webapps/blackboard/execute/courseMain?course_id=_8419_1"
 }
+
+# Download only the Past Examination Papers section of Maths Central.
+course_links["Maths Central"] = (
+    "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1"
+)

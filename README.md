@@ -3,6 +3,11 @@
 Downloads files from your Blackboard Original courses into `downloads/<course name>/`.
 It follows the course's content folders, keeps original filenames, and skips
 filenames that already exist.
+Quick Links are included, and links stay within each selected Blackboard course ID.
+General Information sections are skipped. The Maths Central target starts at
+[Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
+and downloads that folder and its subfolders into `downloads/Maths Central/`.
+A target pointing directly at a content folder scans that folder's contents.
 
 1. **Open the repository in PowerShell.**
 
@@ -24,6 +29,15 @@ filenames that already exist.
    `course_links = {...}` assignment into [course_links.py](course_links.py)
    and save it. Keep the entries for the courses you want to download.
    Start with one course to check the first live run.
+
+   If you replace the whole file with fresh console output, append the following
+   assignment to include Maths Central's Past Examination Papers as a separate download.
+
+   ```python
+   course_links["Maths Central"] = (
+       "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1"
+   )
+   ```
 
 3. **Copy the Cookie request-header value.**
 

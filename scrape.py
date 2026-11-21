@@ -53,11 +53,19 @@ def save_file(response, folder, name):
     print(f"Downloaded: {destination}")
 
 
-def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name="file"):
+def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name="file", course_id=None):
     url = resolve_blackboard_url(url)
     if url is None:
         return
     url = urldefrag(url)[0]
+    query = parse_qs(urlsplit(url).query)
+    section = query.get("courseTocLabel", [""])[0].strip().casefold()
+    linked_course = query.get("course_id", [None])[0]
+    if course_id is not None and linked_course not in (None, course_id):
+        return
+    course_id = course_id or linked_course
+    if name.strip().casefold() == "general information" or section == "general information":
+        return
     if url in visited_urls:
         return
     visited_urls.add(url)
@@ -66,6 +74,9 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
     response.raise_for_status()
     if resolve_blackboard_url(response.url) is None:
         raise RuntimeError("Blackboard sign-in expired. Refresh the cookies in headers.py.")
+    redirected_course = parse_qs(urlsplit(response.url).query).get("course_id", [None])[0]
+    if course_id is not None and redirected_course not in (None, course_id):
+        return
 
     content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
     if content_type not in ("text/html", "application/xhtml+xml") or response.headers.get(
@@ -79,6 +90,9 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
         raise RuntimeError("Blackboard sign-in is required. Add current cookies to headers.py.")
     if verbose:
         print(f"Scanning: {cur_path}")
+    page_heading = soup.find("h1")
+    if page_heading and page_heading.get_text(" ", strip=True).casefold() == "general information":
+        return
     content = soup.find("div", id="content") if ignore_course_menu else None
     content = content or soup
 
@@ -101,11 +115,13 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
             continue
 
         title = " ".join(link.get_text(" ", strip=True).split()) or "file"
+        if title.casefold() == "general information":
+            continue
         folder = Path(cur_path)
         if parts.path.startswith("/webapps/blackboard/content/listContent"):
             folder /= safe_name(title)
         try:
-            download_content(target, folder, name=title)
+            download_content(target, folder, name=title, course_id=course_id)
         except (requests.RequestException, OSError) as error:
             print(f"Failed: {title} ({error})", file=sys.stderr)
 
@@ -126,7 +142,10 @@ def main():
     failed = False
     for name, url in course_links.items():
         try:
-            download_content(url, output / safe_name(name), ignore_course_menu=False)
+            starts_at_folder = urlsplit(url).path.startswith(
+                "/webapps/blackboard/content/listContent"
+            )
+            download_content(url, output / safe_name(name), ignore_course_menu=starts_at_folder)
         except (requests.RequestException, OSError, RuntimeError) as error:
             print(f"Failed: {name} ({error})", file=sys.stderr)
             failed = True
