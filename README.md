@@ -1,24 +1,94 @@
 # Blackboard Scraper for Imperial
 
-Downloads files from your Blackboard Original courses into `downloads/<course name>/`,
-keeping the course's content folders. Existing filenames are skipped.
+Downloads files from your Blackboard Original courses into `downloads/<course name>/`.
+It follows the course's content folders, keeps original filenames, and skips
+filenames that already exist.
 
-Requires Python 3.9+, `requests`, and `beautifulsoup4`.
+1. **Open the repository in PowerShell.**
 
-1. Sign in at https://bb.imperial.ac.uk in your browser.
-2. Keep your current Blackboard cookies in the local `cookies` dictionary in
-   `headers.py`. An optional `headers` dictionary is also supported.
-3. On the Courses page, scroll until the courses you want are loaded. Run
-   `getCourseLinks.js` in the browser console and paste its printed
-   `course_links = {...}` assignment into `course_links.py`. Remove entries
-   you do not want to download.
-4. Run `python scrape.py`.
+   Open PowerShell in your local copy of this repository. Install the two
+   dependencies once with Python 3.9 or newer.
 
-To choose another download folder, run `python scrape.py "C:\path\to\downloads"`.
+   ```powershell
+   python -m pip install requests beautifulsoup4
+   ```
 
-The scraper follows Blackboard content folders and file links. Lecture recordings
-and external services such as Panopto need their own download methods. Refresh
-your cookies if Blackboard asks you to sign in again.
+2. **Sign in to Blackboard and choose courses.**
 
-Cookies grant access to your signed-in account. Keep them on your computer and
-out of commits.
+   Open [Imperial Blackboard](https://bb.imperial.ac.uk/ultra/course) and sign in.
+   On the Courses page, choose list view and increase the items per page if needed.
+   Scroll until the courses you want are loaded.
+
+   Press **F12**, select **Console**, and run the contents of
+   [getCourseLinks.js](getCourseLinks.js). Copy the printed
+   `course_links = {...}` assignment into [course_links.py](course_links.py)
+   and save it. Keep the entries for the courses you want to download.
+   Start with one course to check the first live run.
+
+3. **Copy the Cookie request-header value.**
+
+   Keep DevTools open and select **Network**. Click the crossed-circle icon
+   beside the recording button to clear the request list. Make sure recording
+   is active, then enter `listContent.jsp` in the **Filter** box.
+
+   Click a course title on the Blackboard page. If the request list stays empty,
+   refresh while inside the course.
+
+   Click a matching request with **Status 200** and a Request URL on
+   `https://bb.imperial.ac.uk`. In its **Headers** tab, expand
+   **Request Headers**, find **Cookie**, and copy its value.
+
+   It looks like `name=value; another_name=another_value`.
+   This is the only Network value the scraper needs for its cookie configuration.
+   [Chrome's guide to request headers](https://developer.chrome.com/docs/devtools/network/reference#headers)
+
+4. **Paste that value into headers.py.**
+
+   Open [headers.py](headers.py) in your editor. Paste the copied text on the
+   empty line between the triple quotes.
+
+   ```python
+   cookie_header = """
+   name=value; another_name=another_value
+   """
+   ```
+
+   The example values above are placeholders. Keep the rest of the file and save
+   it. The code below the quotes automatically converts the text into cookies
+   for the scraper. It also accepts a copied line starting with `Cookie:`.
+
+   Cookies grant access to your signed-in account. Keep them local. This
+   repository tracks `headers.py`, so clear the pasted value before committing
+   or sharing that file.
+
+5. **Run the scrape.**
+
+   From the repository folder, run the following command.
+
+   ```powershell
+   python scrape.py
+   ```
+
+   The default destination is the `downloads` folder beside `scrape.py`.
+   To choose another destination, provide its path.
+
+   ```powershell
+   python scrape.py "C:\path\to\downloads"
+   ```
+
+6. **Check the files.**
+
+   `Scanning` identifies a course folder being read. `Downloaded` identifies a
+   saved file, `Already exists` identifies a filename being skipped, and
+   `Failed` reports an error.
+
+   Open a few downloaded files after the first course. You can then add more
+   course entries and run the command again. Press **Ctrl+C** to stop.
+
+If the scraper reports that sign-in is required or expired, repeat steps 3 and 4
+with a current Cookie value. If it reports missing courses, check that
+`course_links.py` contains a non-empty `course_links = {...}` assignment.
+
+Lecture recordings and files hosted on external services such as Panopto require
+those services' download methods. Live scraping depends on your current
+Blackboard access and session.
