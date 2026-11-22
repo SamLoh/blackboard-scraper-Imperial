@@ -4,6 +4,7 @@ import sys
 from concurrent.futures import ALL_COMPLETED, FIRST_COMPLETED, ThreadPoolExecutor, wait
 from email.message import Message
 from pathlib import Path
+from threading import Lock
 from urllib.parse import parse_qs, urldefrag, urljoin, urlsplit
 
 import requests
@@ -19,10 +20,19 @@ visited_urls = set()
 download_pool = None
 pending_downloads = {}
 download_errors = False
-session = requests.Session()
-session.headers.update(getattr(authentication, "headers", {}))
-for cookie_name, cookie_value in getattr(authentication, "cookies", {}).items():
-    session.cookies.set(cookie_name, cookie_value, domain="bb.imperial.ac.uk", path="/")
+active_destinations = set()
+destination_lock = Lock()
+
+
+def make_session():
+    connection = requests.Session()
+    connection.headers.update(getattr(authentication, "headers", {}))
+    for cookie_name, cookie_value in getattr(authentication, "cookies", {}).items():
+        connection.cookies.set(cookie_name, cookie_value, domain="bb.imperial.ac.uk", path="/")
+    return connection
+
+
+session = make_session()
 
 
 def safe_name(name):
@@ -47,38 +57,57 @@ def file_destination(response, folder, name):
 def save_file(response, folder, name):
     with response:
         destination = file_destination(response, folder, name)
-        if destination.exists():
-            print(f"Already exists: {destination}")
-            return
+        with destination_lock:
+            if destination.exists():
+                print(f"Already exists: {destination}")
+                return
+            if destination in active_destinations:
+                print(f"Already queued: {destination}")
+                return
+            active_destinations.add(destination)
 
-        destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = destination.with_name(destination.name + ".part")
         try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
             with temporary.open("wb") as handle:
                 for chunk in response.iter_content(chunk_size=64 * 1024):
                     if chunk:
                         handle.write(chunk)
             temporary.replace(destination)
+            print(f"Downloaded: {destination}")
         finally:
-            temporary.unlink(missing_ok=True)
-        print(f"Downloaded: {destination}")
+            try:
+                temporary.unlink(missing_ok=True)
+            finally:
+                with destination_lock:
+                    active_destinations.discard(destination)
 
 
 def finish_downloads(wait_for_all=False):
     global download_errors
-    if not pending_downloads:
-        return
-    completed, _ = wait(
-        pending_downloads,
-        return_when=ALL_COMPLETED if wait_for_all else FIRST_COMPLETED,
-    )
-    for future in completed:
-        destination = pending_downloads.pop(future)
-        try:
-            future.result()
-        except (requests.RequestException, OSError) as error:
-            print(f"Failed: {destination} ({error})", file=sys.stderr)
-            download_errors = True
+    while pending_downloads:
+        completed, _ = wait(
+            pending_downloads,
+            return_when=ALL_COMPLETED if wait_for_all else FIRST_COMPLETED,
+        )
+        pages = []
+        for future in completed:
+            description = pending_downloads.pop(future)
+            try:
+                page = future.result()
+                if page is not None:
+                    pages.append(page)
+            except (requests.RequestException, OSError, RuntimeError) as error:
+                print(f"Failed: {description} ({error})", file=sys.stderr)
+                download_errors = True
+        for page in pages:
+            try:
+                process_page(*page)
+            except (requests.RequestException, OSError, RuntimeError) as error:
+                print(f"Failed: {page[0]} ({error})", file=sys.stderr)
+                download_errors = True
+        if not wait_for_all:
+            break
 
 
 def queue_download(response, folder, name):
@@ -86,14 +115,26 @@ def queue_download(response, folder, name):
     if destination.exists():
         response.close()
         print(f"Already exists: {destination}")
-    elif destination in pending_downloads.values():
-        response.close()
-        print(f"Already queued: {destination}")
     elif download_pool is None:
         save_file(response, folder, name)
     else:
         future = download_pool.submit(save_file, response, folder, name)
         pending_downloads[future] = destination
+
+
+def check_response(response, course_id):
+    response.raise_for_status()
+    if resolve_blackboard_url(response.url) is None:
+        raise RuntimeError("Blackboard sign-in expired. Refresh the cookies in headers.py.")
+    redirected_course = parse_qs(urlsplit(response.url).query).get("course_id", [None])[0]
+    return course_id is None or redirected_course in (None, course_id)
+
+
+def is_file_response(response):
+    content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    return content_type not in ("text/html", "application/xhtml+xml") or response.headers.get(
+        "Content-Disposition", ""
+    ).lower().startswith("attachment")
 
 
 def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name="file", course_id=None):
@@ -113,30 +154,31 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
         return
     visited_urls.add(url)
 
-    if len(pending_downloads) >= MAX_DOWNLOADS:
+    while len(pending_downloads) >= MAX_DOWNLOADS:
         finish_downloads()
+    if download_pool is not None and urlsplit(url).path.startswith("/bbcswebdav/"):
+        future = download_pool.submit(download_file, url, cur_path, name, course_id)
+        pending_downloads[future] = f"{cur_path}/{name}"
+        return
+
     response = session.get(url, timeout=30, stream=True)
     try:
-        response.raise_for_status()
-        if resolve_blackboard_url(response.url) is None:
-            raise RuntimeError("Blackboard sign-in expired. Refresh the cookies in headers.py.")
-        redirected_course = parse_qs(urlsplit(response.url).query).get("course_id", [None])[0]
-        if course_id is not None and redirected_course not in (None, course_id):
+        if not check_response(response, course_id):
             return
-
-        content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
-        if content_type not in ("text/html", "application/xhtml+xml") or response.headers.get(
-            "Content-Disposition", ""
-        ).lower().startswith("attachment"):
+        if is_file_response(response):
             queue_download(response, cur_path, name)
             response = None  # The download worker owns and closes this response.
             return
-
         page_url = response.url
-        soup = BeautifulSoup(response.content, "html.parser")
+        body = response.content
     finally:
         if response is not None:
             response.close()
+    process_page(page_url, body, cur_path, course_id, ignore_course_menu, verbose)
+
+
+def process_page(page_url, body, cur_path, course_id=None, ignore_course_menu=True, verbose=True):
+    soup = BeautifulSoup(body, "html.parser")
     if soup.select_one('input[type="password"], #loginForm'):
         raise RuntimeError("Blackboard sign-in is required. Add current cookies to headers.py.")
     if verbose:
@@ -177,8 +219,19 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
             print(f"Failed: {title} ({error})", file=sys.stderr)
 
 
-def download_file(url, path, name):
-    download_content(url, path, name=name)
+def download_file(url, path, name, course_id=None):
+    url = resolve_blackboard_url(url)
+    if url is None:
+        return
+    with make_session() as connection:
+        with connection.get(url, timeout=30, stream=True) as response:
+            if not check_response(response, course_id):
+                return
+            if is_file_response(response):
+                save_file(response, path, name)
+                return
+            # An HTML file viewer is handed back to sequential folder discovery.
+            return response.url, response.content, path, course_id
 
 
 def main():
@@ -194,9 +247,9 @@ def main():
     failed = False
     download_errors = False
     visited_urls.clear()
-    try:
-        with ThreadPoolExecutor(max_workers=MAX_DOWNLOADS) as pool:
-            download_pool = pool
+    with ThreadPoolExecutor(max_workers=MAX_DOWNLOADS) as pool:
+        download_pool = pool
+        try:
             for name, url in course_links.items():
                 try:
                     starts_at_folder = urlsplit(url).path.startswith(
@@ -210,11 +263,11 @@ def main():
                 except (requests.RequestException, OSError, RuntimeError) as error:
                     print(f"Failed: {name} ({error})", file=sys.stderr)
                     failed = True
-    finally:
-        try:
-            finish_downloads(wait_for_all=True)
         finally:
-            download_pool = None
+            try:
+                finish_downloads(wait_for_all=True)
+            finally:
+                download_pool = None
     return int(failed or download_errors)
 
 
