@@ -129,6 +129,12 @@ You need **Python 3.9 or newer**, Chrome, and access to Blackboard.
 - Existing filenames are checked after reading the response headers, before
   reading the file body.
 - Module scrapes include Quick Links and skip General Information.
+- Learning modules are followed through their contents lists, next-page links,
+  and embedded frames. Quoted navigation URLs in link handlers are read without
+  running JavaScript.
+- Pages that build their links entirely with JavaScript and external learning
+  tools may still need manual downloads. If files are missing, copy the section
+  link address so its page type can be checked.
 - Each target stays within its Blackboard course or organisation ID.
 - The Maths Central targets scan their selected sections and subfolders.
 - Files hosted on services such as Panopto use those services' download options.

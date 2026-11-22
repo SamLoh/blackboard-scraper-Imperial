@@ -16,6 +16,10 @@ from course_links import course_links
 
 
 MAX_WORKERS = 3
+LEARNING_MODULE_PATHS = {
+    "/webapps/blackboard/execute/displayLearningUnit",
+    "/webapps/blackboard/execute/learningUnit",
+}
 visited_urls = set()
 download_pool = None
 pending_downloads = {}
@@ -137,6 +141,24 @@ def is_file_response(response):
     ).lower().startswith("attachment")
 
 
+def link_urls(link, page_url):
+    """Read ordinary URLs and quoted navigation URLs without executing scripts."""
+    href = link.get("href") or link.get("src") or link.get("data") or ""
+    candidates = [href]
+    for script in (href if href.lstrip().lower().startswith("javascript:") else "",
+                   link.get("onclick", "")):
+        candidates.extend(match[1] for match in re.findall(r"""(['"])([^'"\r\n]+)\1""", script))
+    seen = set()
+    for candidate in candidates:
+        candidate = candidate.strip()
+        if not candidate or candidate.startswith("#"):
+            continue
+        target = resolve_blackboard_url(urljoin(page_url, candidate))
+        if target is not None and target not in seen:
+            seen.add(target)
+            yield target
+
+
 def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name="file", course_id=None):
     url = resolve_blackboard_url(url)
     if url is None:
@@ -178,6 +200,7 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
 
 
 def process_page(page_url, body, cur_path, course_id=None, ignore_course_menu=True, verbose=True):
+    global download_errors
     soup = BeautifulSoup(body, "html.parser")
     if soup.select_one('input[type="password"], #loginForm'):
         raise RuntimeError("Blackboard sign-in is required. Add current cookies to headers.py.")
@@ -186,37 +209,45 @@ def process_page(page_url, body, cur_path, course_id=None, ignore_course_menu=Tr
     page_heading = soup.find("h1")
     if page_heading and page_heading.get_text(" ", strip=True).casefold() == "general information":
         return
-    content = soup.find("div", id="content") if ignore_course_menu else None
+    learning_module = (
+        urlsplit(page_url).path in LEARNING_MODULE_PATHS
+        or soup.find(id="learningUnitToc") is not None
+    )
+    # The contents list and next-page controls can sit outside div#content.
+    content = soup.find("div", id="content") if ignore_course_menu and not learning_module else None
     content = content or soup
+    links = content.find_all(["a", "iframe", "frame", "object", "embed", "button", "input"])
+    if content is not soup:
+        links.extend(frame for frame in soup.find_all(["iframe", "frame"])
+                     if frame.find_parent("div", id="content") is None)
 
-    for link in content.find_all(["a", "iframe", "frame"]):
-        href = link.get("href") or link.get("src")
-        if not href:
+    for link in links:
+        if ignore_course_menu and link.find_parent(id="courseMenuPalette") is not None:
             continue
-        target = resolve_blackboard_url(urljoin(page_url, href))
-        if target is None:
-            continue
-        parts = urlsplit(target)
-        allowed = (
-            parts.path.startswith("/bbcswebdav/")
-            or parts.path.startswith("/webapps/blackboard/content/listContent")
-            or parts.path == "/webapps/blackboard/content/launchLink.jsp"
-            or parts.path == "/webapps/blackboard/execute/courseMain"
-            or parts.path == "/webapps/blackboard/execute/content/file"
-        )
-        if not allowed or "tool_id" in parse_qs(parts.query):
-            continue
-
-        title = " ".join(link.get_text(" ", strip=True).split()) or "file"
+        title = " ".join(link.get_text(" ", strip=True).split()) or link.get("title") or "file"
         if title.casefold() == "general information":
             continue
-        folder = Path(cur_path)
-        if parts.path.startswith("/webapps/blackboard/content/listContent"):
-            folder /= safe_name(title)
-        try:
-            download_content(target, folder, name=title, course_id=course_id)
-        except (requests.RequestException, OSError) as error:
-            print(f"Failed: {title} ({error})", file=sys.stderr)
+        for target in link_urls(link, page_url):
+            parts = urlsplit(target)
+            allowed = (
+                parts.path.startswith("/bbcswebdav/")
+                or parts.path.startswith("/webapps/blackboard/content/listContent")
+                or parts.path == "/webapps/blackboard/content/launchLink.jsp"
+                or parts.path == "/webapps/blackboard/execute/courseMain"
+                or parts.path == "/webapps/blackboard/execute/content/file"
+                or parts.path in LEARNING_MODULE_PATHS
+            )
+            if not allowed or "tool_id" in parse_qs(parts.query):
+                continue
+            folder = Path(cur_path)
+            if (parts.path.startswith("/webapps/blackboard/content/listContent")
+                    or (parts.path in LEARNING_MODULE_PATHS and not learning_module)):
+                folder /= safe_name(title)
+            try:
+                download_content(target, folder, name=title, course_id=course_id)
+            except (requests.RequestException, OSError) as error:
+                print(f"Failed: {title} ({error})", file=sys.stderr)
+                download_errors = True
 
 
 def download_file(url, path, name, course_id=None):
