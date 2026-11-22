@@ -2,12 +2,22 @@
 
 Downloads files from your Blackboard Original courses into `downloads/<course name>/`.
 It follows the course's content folders, keeps original filenames, and skips
-filenames that already exist.
+filenames that already exist. Existing files are checked after reading response headers,
+before reading the file body. Folder discovery is sequential, with up to three
+file downloads running at once.
 Quick Links are included, and links stay within each selected Blackboard course ID.
-General Information sections are skipped. The Maths Central target starts at
-[Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
-and downloads that folder and its subfolders into `downloads/Maths Central/`.
+General Information sections are skipped during module scrapes. Maths Central has
+two separate targets and destinations.
+
+- [Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
+  downloads into `downloads/Maths Central/Past Examination Papers/`.
+- [Course Information](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1)
+  downloads into `downloads/Maths Central/Course Information/`.
+
 A target pointing directly at a content folder scans that folder's contents.
+Names starting with `Maths Central / ` place that section inside the Maths Central
+download folder. Existing General Information and other examinations material
+moved there can be kept alongside these two sections.
 
 1. **Open the repository in PowerShell.**
 
@@ -31,11 +41,14 @@ A target pointing directly at a content folder scans that folder's contents.
    Start with one course to check the first live run.
 
    If you replace the whole file with fresh console output, append the following
-   assignment to include Maths Central's Past Examination Papers as a separate download.
+   assignments to include Maths Central's two download sections.
 
    ```python
-   course_links["Maths Central"] = (
+   course_links["Maths Central / Past Examination Papers"] = (
        "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1"
+   )
+   course_links["Maths Central / Course Information"] = (
+       "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1"
    )
    ```
 

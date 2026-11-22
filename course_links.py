@@ -51,7 +51,10 @@ course_links = {
     "Tutor and GTA material": "https://bb.imperial.ac.uk/webapps/blackboard/execute/courseMain?course_id=_8419_1"
 }
 
-# Download only the Past Examination Papers section of Maths Central.
-course_links["Maths Central"] = (
+# Keep Maths Central sections in their own organisation folders.
+course_links["Maths Central / Past Examination Papers"] = (
     "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1"
+)
+course_links["Maths Central / Course Information"] = (
+    "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1"
 )
