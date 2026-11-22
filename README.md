@@ -25,10 +25,18 @@ You need **Python 3.9 or newer**, Chrome, and access to Blackboard.
 
    Open [course_links.py](course_links.py). Replace the module dictionary, from
    `course_links = {` through its closing `}`, with the copied output.
-   Keep the module entries you want, then save the file.
 
-   **Keep the two Maths Central assignments below the module dictionary.** They
-   add these sections to the run.
+   **Only keep course links you actually need.** The generated list can include
+   every loaded course. Remove unwanted entries before saving the file. Every
+   course left in the dictionary will be checked and its available files
+   downloaded. Courses can include videos and datasets as well as notes.
+
+   **Keep the Maths Central assignments below the module dictionary and enable
+   only the sections you need.** Each active assignment adds a whole section to
+   the run. Put `#` at the start of either assignment to exclude that section.
+
+   The two optional sections are listed below. Past Examination Papers includes
+   the shared collection across all years.
 
    - [Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
    - [Course Information](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1)
@@ -48,7 +56,7 @@ You need **Python 3.9 or newer**, Chrome, and access to Blackboard.
      the request list stays empty.
    - Select a matching request with **Status 200** and a Request URL on
      `https://bb.imperial.ac.uk`.
-   - Open **Headers ? Request Headers**, find **Cookie**, and copy its whole value.
+   - Open **Headers**, expand **Request Headers**, find **Cookie**, and copy its whole value.
 
    Open [headers.py](headers.py). Paste the value between the triple quotes.
 
@@ -105,17 +113,19 @@ You need **Python 3.9 or newer**, Chrome, and access to Blackboard.
 
 **Common problems**
 
-- **Missing `requests` or `bs4`** ? repeat step 1.
-- **Missing course links** ? check that the module dictionary in `course_links.py`
+- **Missing `requests` or `bs4`** - repeat step 1.
+- **Missing course links** - check that the module dictionary in `course_links.py`
   contains the courses you selected.
-- **Sign-in required or expired** ? repeat step 3 with a fresh Cookie value.
-- **404 error** ? Blackboard could not provide that link.
-- **500 error** ? Blackboard returned a server error. Try that link again later.
+- **Sign-in required or expired** - repeat step 3 with a fresh Cookie value.
+- **404 error** - Blackboard could not provide that link.
+- **500 error** - Blackboard returned a server error. Try that link again later.
 
 **Download behaviour**
 
 - `MAX_WORKERS` in [scrape.py](scrape.py) controls parallel file checks and downloads.
-  The default is **6**. Folder discovery runs sequentially.
+  The default is **3**, a conservative limit for everyday laptop use.
+  Set it to **1** for serial file checks and downloads. Folder discovery runs
+  sequentially.
 - Existing filenames are checked after reading the response headers, before
   reading the file body.
 - Module scrapes include Quick Links and skip General Information.

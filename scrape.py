@@ -15,7 +15,7 @@ from blackboard_urls import resolve_blackboard_url
 from course_links import course_links
 
 
-MAX_WORKERS = 6
+MAX_WORKERS = 3
 visited_urls = set()
 download_pool = None
 pending_downloads = {}
