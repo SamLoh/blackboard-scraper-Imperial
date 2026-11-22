@@ -6,8 +6,8 @@ filenames that already exist. Existing files are checked after reading response 
 before reading the file body. Up to six workers check file headers and download
 missing files in parallel. Folder discovery is sequential.
 Quick Links are included, and links stay within each selected Blackboard course ID.
-General Information sections are skipped during module scrapes. Optional Maths
-Central entries can add the following two download targets.
+General Information sections are skipped during module scrapes. The supplied
+list also includes the following two Maths Central download targets.
 
 - [Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
   downloads into `downloads/Maths Central/Past Examination Papers/`.
@@ -36,13 +36,15 @@ moved there can be kept alongside these two sections.
 
    Press **F12**, select **Console**, and run the contents of
    [getCourseLinks.js](getCourseLinks.js). Copy the printed
-   `course_links = {...}` assignment into [course_links.py](course_links.py)
-   and save it. Keep the entries for the courses you want to download.
-   The supplied module list contains three Year 1 examples. Replace them with
-   your own selection. Start with one course to check the first live run.
+   `course_links = {...}` assignment and use it to replace the module dictionary
+   in [course_links.py](course_links.py). Keep the Maths Central assignments below
+   that dictionary, then save the file.
 
-   If you replace the whole file with fresh console output, append the following
-   assignments to include Maths Central's two download sections.
+   The replaceable dictionary contains three Year 1 examples. Keep the module
+   entries you want to download. Start with one course to check the first live run.
+
+   These Maths Central assignments run after the module dictionary and add its
+   two download sections.
 
    ```python
    course_links["Maths Central / Past Examination Papers"] = (
