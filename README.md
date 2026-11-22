@@ -1,97 +1,71 @@
 # Blackboard Scraper for Imperial
 
-Downloads files from your Blackboard Original courses into `downloads/<course name>/`.
-It follows the course's content folders, keeps original filenames, and skips
-filenames that already exist. Existing files are checked after reading response headers,
-before reading the file body. Up to six workers check file headers and download
-missing files in parallel. Folder discovery is sequential.
-Quick Links are included, and links stay within each selected Blackboard course ID.
-General Information sections are skipped during module scrapes. The supplied
-list also includes the following two Maths Central download targets.
+Download your Imperial Blackboard course files and selected Maths Central resources
+into a local `downloads` folder. Reruns skip files with matching filenames.
 
-- [Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
-  downloads into `downloads/Maths Central/Past Examination Papers/`.
-- [Course Information](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1)
-  downloads into `downloads/Maths Central/Course Information/`.
+You need **Python 3.9 or newer**, Chrome, and access to Blackboard.
 
-A target pointing directly at a content folder scans that folder's contents.
-Names starting with `Maths Central / ` place that section inside the Maths Central
-download folder. Existing General Information and other examinations material
-moved there can be kept alongside these two sections.
+1. **Install the dependencies**
 
-1. **Open the repository in PowerShell.**
-
-   Open PowerShell in your local copy of this repository. Install the two
-   dependencies once with Python 3.9 or newer.
+   Open PowerShell in this repository's folder and run the following command once.
 
    ```powershell
    python -m pip install requests beautifulsoup4
    ```
 
-2. **Sign in to Blackboard and choose courses.**
+2. **Choose what to download**
 
-   Open [Imperial Blackboard](https://bb.imperial.ac.uk/ultra/course) and sign in.
-   On the Courses page, choose list view and increase the items per page if needed.
-   Scroll until the courses you want are loaded.
+   - Sign in to [Imperial Blackboard](https://bb.imperial.ac.uk/ultra/course).
+   - Choose list view and increase the items per page. Scroll through the list to
+     load the courses you want.
+   - Press **F12** and open **Console**.
+   - Open [getCourseLinks.js](getCourseLinks.js), copy its contents into the Console,
+     and press **Enter**.
+   - Copy the printed text starting with `course_links = {`.
 
-   Press **F12**, select **Console**, and run the contents of
-   [getCourseLinks.js](getCourseLinks.js). Copy the printed
-   `course_links = {...}` assignment and use it to replace the module dictionary
-   in [course_links.py](course_links.py). Keep the Maths Central assignments below
-   that dictionary, then save the file.
+   Open [course_links.py](course_links.py). Replace the module dictionary, from
+   `course_links = {` through its closing `}`, with the copied output.
+   Keep the module entries you want, then save the file.
 
-   The replaceable dictionary contains three Year 1 examples. Keep the module
-   entries you want to download. Start with one course to check the first live run.
+   **Keep the two Maths Central assignments below the module dictionary.** They
+   add these sections to the run.
 
-   These Maths Central assignments run after the module dictionary and add its
-   two download sections.
+   - [Past Examination Papers](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1)
+   - [Course Information](https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1)
 
-   ```python
-   course_links["Maths Central / Past Examination Papers"] = (
-       "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087686_1"
-   )
-   course_links["Maths Central / Course Information"] = (
-       "https://bb.imperial.ac.uk/webapps/blackboard/content/listContent.jsp?course_id=_7508_1&content_id=_1087552_1"
-   )
-   ```
+   The supplied dictionary contains three Year 1 examples. For a single-course
+   test, keep one module entry and comment out the two Maths Central assignments.
 
-3. **Copy the Cookie request-header value.**
+3. **Add your current sign-in cookie**
 
-   Keep DevTools open and select **Network**. Click the crossed-circle icon
-   beside the recording button to clear the request list. Make sure recording
-   is active, then enter `listContent.jsp` in the **Filter** box.
+   In the same Chrome window where you signed in, open DevTools with **F12**.
 
-   Click a course title on the Blackboard page. If the request list stays empty,
-   refresh while inside the course.
+   - Select **Network**.
+   - Click the crossed-circle icon beside the recording button to clear the list.
+     Make sure recording is active.
+   - Type `listContent.jsp` into **Filter**.
+   - Click a course title on the Blackboard page. Refresh inside the course if
+     the request list stays empty.
+   - Select a matching request with **Status 200** and a Request URL on
+     `https://bb.imperial.ac.uk`.
+   - Open **Headers ? Request Headers**, find **Cookie**, and copy its whole value.
 
-   Click a matching request with **Status 200** and a Request URL on
-   `https://bb.imperial.ac.uk`. In its **Headers** tab, expand
-   **Request Headers**, find **Cookie**, and copy its value.
-
-   It looks like `name=value; another_name=another_value`.
-   This is the only Network value the scraper needs for its cookie configuration.
-   [Chrome's guide to request headers](https://developer.chrome.com/docs/devtools/network/reference#headers)
-
-4. **Paste that value into headers.py.**
-
-   Open [headers.py](headers.py) in your editor. Paste the copied text on the
-   empty line between the triple quotes.
+   Open [headers.py](headers.py). Paste the value between the triple quotes.
 
    ```python
    cookie_header = """
-   name=value; another_name=another_value
+   PASTE_YOUR_COOKIE_VALUE_HERE
    """
    ```
 
-   The example values above are placeholders. Keep the rest of the file and save
-   it. The code below the quotes automatically converts the text into cookies
-   for the scraper. It also accepts a copied line starting with `Cookie:`.
+   Keep the rest of the file and save it. The Cookie value is the only value
+   needed from the Network tab.
 
-   Cookies grant access to your signed-in account. Keep them local. This
-   repository tracks `headers.py`, so clear the pasted value before committing
-   or sharing that file.
+   **Keep the cookie private.** It grants access to your signed-in session.
+   Clear it from `headers.py` before committing or sharing the file. Use
+   Blackboard's **Sign Out** when you have finished scraping.
 
-5. **Run the scrape.**
+4. **Run the scraper**
 
    From the repository folder, run the following command.
 
@@ -99,26 +73,55 @@ moved there can be kept alongside these two sections.
    python scrape.py
    ```
 
-   The default destination is the `downloads` folder beside `scrape.py`.
-   To choose another destination, provide its path.
+   Files are saved beside `scrape.py` in this structure.
+
+   ```text
+   downloads/
+     <course name>/
+     Maths Central/
+       Past Examination Papers/
+       Course Information/
+   ```
+
+   To choose a different destination, pass its path.
 
    ```powershell
    python scrape.py "C:\path\to\downloads"
    ```
 
-6. **Check the files.**
+   Press **Ctrl+C** to stop. To run it again, use the same command.
 
-   `Scanning` identifies a course folder being read. `Downloaded` identifies a
-   saved file, `Already exists` identifies a filename being skipped, and
-   `Failed` reports an error.
+5. **Check the results**
 
-   Open a few downloaded files after the first course. You can then add more
-   course entries and run the command again. Press **Ctrl+C** to stop.
+   | Message | Meaning |
+   |---|---|
+   | `Scanning` | Reading a course folder |
+   | `Downloaded` | Saved a file |
+   | `Already exists` | Skipped a matching filename in that destination |
+   | `Already queued` | Another worker is already saving that filename |
+   | `Failed` | The request or file download encountered an error |
 
-If the scraper reports that sign-in is required or expired, repeat steps 3 and 4
-with a current Cookie value. If it reports missing courses, check that
-`course_links.py` contains a non-empty `course_links = {...}` assignment.
+   Open a few downloaded files to check they work.
 
-Lecture recordings and files hosted on external services such as Panopto require
-those services' download methods. Live scraping depends on your current
-Blackboard access and session.
+**Common problems**
+
+- **Missing `requests` or `bs4`** ? repeat step 1.
+- **Missing course links** ? check that the module dictionary in `course_links.py`
+  contains the courses you selected.
+- **Sign-in required or expired** ? repeat step 3 with a fresh Cookie value.
+- **404 error** ? Blackboard could not provide that link.
+- **500 error** ? Blackboard returned a server error. Try that link again later.
+
+**Download behaviour**
+
+- `MAX_WORKERS` in [scrape.py](scrape.py) controls parallel file checks and downloads.
+  The default is **6**. Folder discovery runs sequentially.
+- Existing filenames are checked after reading the response headers, before
+  reading the file body.
+- Module scrapes include Quick Links and skip General Information.
+- Each target stays within its Blackboard course or organisation ID.
+- The Maths Central targets scan their selected sections and subfolders.
+- Files hosted on services such as Panopto use those services' download options.
+
+For help finding the Cookie header, see
+[Chrome's request-header guide](https://developer.chrome.com/docs/devtools/network/reference#headers).
