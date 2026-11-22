@@ -3,7 +3,7 @@
 Downloads files from your Blackboard Original courses into `downloads/<course name>/`.
 It follows the course's content folders, keeps original filenames, and skips
 filenames that already exist. Existing files are checked after reading response headers,
-before reading the file body. Up to three workers check file headers and download
+before reading the file body. Up to six workers check file headers and download
 missing files in parallel. Folder discovery is sequential.
 Quick Links are included, and links stay within each selected Blackboard course ID.
 General Information sections are skipped during module scrapes. Maths Central has

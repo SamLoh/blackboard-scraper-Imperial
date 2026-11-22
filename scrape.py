@@ -15,7 +15,7 @@ from blackboard_urls import resolve_blackboard_url
 from course_links import course_links
 
 
-MAX_DOWNLOADS = 3
+MAX_WORKERS = 6
 visited_urls = set()
 download_pool = None
 pending_downloads = {}
@@ -154,7 +154,7 @@ def download_content(url, cur_path, ignore_course_menu=True, verbose=True, name=
         return
     visited_urls.add(url)
 
-    while len(pending_downloads) >= MAX_DOWNLOADS:
+    while len(pending_downloads) >= MAX_WORKERS:
         finish_downloads()
     if download_pool is not None and urlsplit(url).path.startswith("/bbcswebdav/"):
         future = download_pool.submit(download_file, url, cur_path, name, course_id)
@@ -247,7 +247,7 @@ def main():
     failed = False
     download_errors = False
     visited_urls.clear()
-    with ThreadPoolExecutor(max_workers=MAX_DOWNLOADS) as pool:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         download_pool = pool
         try:
             for name, url in course_links.items():
